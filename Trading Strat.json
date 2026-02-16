@@ -1,0 +1,313 @@
+{
+  "name": "Trading Strat",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "549f3e86-ec5e-4171-9e15-ed8af294dd8b",
+      "name": "Start Bot",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/dryjins/aib/main/2026/l4/crypto_features_3months.csv",
+        "options": {}
+      },
+      "id": "28dd6713-9200-4dc7-9fc2-a742c2367212",
+      "name": "1. Load Market Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://raw.githubusercontent.com/dryjins/aib/main/2026/l4/crypto_news_3months.csv",
+        "options": {}
+      },
+      "id": "cdb09e51-64eb-4f96-9898-2a0defdeefa6",
+      "name": "2. Load News Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        224,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first();\nlet text = '';\nif (typeof input.json === 'string') text = input.json;\nelse if (input.json.data) text = input.json.data;\nelse if (input.binary) text = Buffer.from(input.binary.data.data, 'base64').toString('utf-8');\n\nconst lines = text.split('\\n').filter(l => l.trim());\nconst headers = lines[0].split(',').map(h => h.trim());\n\nconst result = [];\nfor (let i = 1; i < lines.length; i++) {\n  const line = lines[i];\n  if (!line.trim()) continue;\n  const values = [];\n  let current = '';\n  let inQuotes = false;\n  for (let char of line) {\n    if (char === '\"') inQuotes = !inQuotes;\n    else if (char === ',' && !inQuotes) {\n      values.push(current.trim());\n      current = '';\n    } else current += char;\n  }\n  values.push(current.trim());\n  const obj = {};\n  headers.forEach((h, idx) => obj[h] = values[idx] || '');\n  result.push({ json: obj });\n}\nreturn result;"
+      },
+      "id": "da907ece-1b8c-4ba8-9d87-c53dc8620c2a",
+      "name": "Parse CSV (Market)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first();\nlet text = '';\nif (typeof input.json === 'string') text = input.json;\nelse if (input.json.data) text = input.json.data;\nelse if (input.binary) text = Buffer.from(input.binary.data.data, 'base64').toString('utf-8');\n\nconst lines = text.split('\\n').filter(l => l.trim());\nconst headers = lines[0].split(',').map(h => h.trim());\n\nconst result = [];\nfor (let i = 1; i < lines.length; i++) {\n  const line = lines[i];\n  if (!line.trim()) continue;\n  const values = [];\n  let current = '';\n  let inQuotes = false;\n  for (let char of line) {\n    if (char === '\"') inQuotes = !inQuotes;\n    else if (char === ',' && !inQuotes) {\n      values.push(current.trim());\n      current = '';\n    } else current += char;\n  }\n  values.push(current.trim());\n  const obj = {};\n  headers.forEach((h, idx) => obj[h] = values[idx] || '');\n  result.push({ json: obj });\n}\nreturn result;"
+      },
+      "id": "f9c89781-07a3-4747-8d63-f7381462629a",
+      "name": "Parse CSV (News)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        208
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const newsByDate = {};\nfor (const item of $input.all()) {\n  let d = item.json.date || (item.json.datetime ? item.json.datetime.split(' ')[0] : '');\n  if (!d) continue;\n  if (!newsByDate[d]) newsByDate[d] = [];\n  newsByDate[d].push(item.json.title);\n}\nreturn [{ json: { newsByDate } }];"
+      },
+      "id": "53a751ff-5b2f-4c3a-aebd-6ce9e74d8662",
+      "name": "Group News",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        656,
+        208
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "d1ba54d6-70a0-4f52-9649-6e2b9c533be0",
+      "name": "Wait for Both",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2.1,
+      "position": [
+        880,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\nlet newsLookup = {};\nconst marketData = [];\n\nfor (const item of allItems) {\n  if (item.json.newsByDate) newsLookup = item.json.newsByDate;\n  else if (item.json.date) marketData.push(item);\n}\n\nmarketData.sort((a, b) => new Date(a.json.date) - new Date(b.json.date));\n\nconst merged = [];\nfor (const item of marketData) {\n  let d = item.json.date.split(' ')[0];\n  const news = newsLookup[d] || [];\n  const newsText = news.length > 0 ? news.slice(0, 3).join(' | ') : \"Market is quiet today.\";\n\n  merged.push({\n    json: {\n      ...item.json,\n      news_text: newsText,\n      news_count: news.length\n    }\n  });\n}\n\nreturn merged;"
+      },
+      "id": "5da628c7-6260-4609-b870-30529fce8424",
+      "name": "3. Merge Daily Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1072,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Simple Batch Preparation\nconst allItems = $input.all();\nconst inputsArray = allItems.map(item => item.json.news_text);\n\n// We store original items to merge later\nreturn [{\n  json: {\n    batch_inputs: inputsArray,\n    original_items: allItems.map(i => i.json)\n  }\n}];"
+      },
+      "id": "21786d6f-47be-4452-b2ed-4ecc2fae6c61",
+      "name": "4. Prepare Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://router.huggingface.co/hf-inference/models/distilbert/distilbert-base-uncased-finetuned-sst-2-english",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\"inputs\": $json.batch_inputs} }}",
+        "options": {}
+      },
+      "id": "cc443d38-27e7-43ed-9e8a-c3aaed8de246",
+      "name": "5. HF Sentiment (Single Batch)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1584,
+        16
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "A5Jk1kwrc9jMcqsk",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Final Logic (Portfolio + Sharpe + MDD)\nconst item = $input.first();\n\nlet apiResponse = item.json.data || item.json;\nconst prepareNode = $(\"4. Prepare Batch\").first();\nconst originalItems = prepareNode.json.original_items; \nif (!originalItems) throw new Error(\"Missing original_items\");\n\nlet sentiments = apiResponse;\nif (Array.isArray(apiResponse) && Array.isArray(apiResponse[0])) sentiments = apiResponse;\nelse if (!Array.isArray(apiResponse)) sentiments = [apiResponse];\n\nconst tickers = [...new Set(originalItems.map(i => i.ticker))]; \nconst initialCapitalPerTicker = 10000 / tickers.length; \nconst portfolio = {};\ntickers.forEach(t => {\n    portfolio[t] = { balance: initialCapitalPerTicker, coin: 0, inPosition: false, entryPrice: 0, lastEquity: initialCapitalPerTicker };\n});\n\nconst trades = [];\nlet totalTrades = 0, winningTrades = 0, totalProfit = 0, totalLoss = 0;\nconst loopCount = Math.min(originalItems.length, sentiments.length);\n\nfor (let i = 0; i < loopCount; i++) {\n    const d = originalItems[i];\n    const s = sentiments[i];\n    const ticker = d.ticker;\n    const price = parseFloat(d.price || d.close);\n    const wallet = portfolio[ticker];\n    if (!wallet) continue;\n\n    let best = { score: 0, label: 'NEUTRAL' };\n    if (Array.isArray(s)) best = s.reduce((p, c) => (c.score > p.score ? c : p), {score: 0});\n    else if (s && s.label) best = s;\n    const sentimentLabel = best.label || 'NEUTRAL';\n    const sentimentScore = best.score || 0;\n    const rsi = parseFloat(d.rsi) || 50;\n\n    const currentPnlPct = wallet.inPosition && wallet.entryPrice > 0\n        ? (price - wallet.entryPrice) / wallet.entryPrice : 0;\n\n    let decision = 'buy';\n    let reason = `News: ${sentimentLabel} (${(sentimentScore*100).toFixed(0)}%)`;\n\n    if (wallet.inPosition && currentPnlPct >= 0.04) {\n        decision = 'sell'; reason = 'Take-Profit +4%';\n    } else if (wallet.inPosition && currentPnlPct <= -0.02) {\n        decision = 'sell'; reason = 'Stop-Loss -2%';\n    } else if (rsi > 68) {\n        decision = 'sell'; reason = 'Overbought RSI';\n    } else if (sentimentLabel === 'NEGATIVE' && sentimentScore > 0.72) {\n        decision = 'sell'; reason = 'Negative News';\n    } else if (rsi < 33 && sentimentLabel !== 'NEGATIVE') {\n        decision = 'buy'; reason = 'Oversold RSI';\n    } else if (sentimentLabel === 'POSITIVE' && sentimentScore > 0.78 && rsi < 58) {\n        decision = 'buy'; reason = 'Positive News + RSI OK';\n    } else {\n        decision = wallet.inPosition ? 'sell' : 'buy';\n        reason = 'Default - no hold';\n    }\n\n    let action = 'none', pnl = 0;\n    if (decision === 'buy' && !wallet.inPosition) {\n        wallet.entryPrice = price;\n        wallet.coin = wallet.balance / price;\n        wallet.balance = 0;\n        wallet.inPosition = true;\n        action = 'buy';\n    } else if (decision === 'sell' && wallet.inPosition) {\n        const sellValue = wallet.coin * price;\n        pnl = sellValue - (wallet.coin * wallet.entryPrice);\n        if (pnl > 0) { winningTrades++; totalProfit += pnl; } \n        else { totalLoss += Math.abs(pnl); }\n        wallet.balance = sellValue;\n        wallet.coin = 0;\n        wallet.inPosition = false;\n        totalTrades++;\n        action = 'sell';\n    }\n\n    const currentTickerEquity = wallet.inPosition ? (wallet.coin * price) : wallet.balance;\n    wallet.lastEquity = currentTickerEquity; \n\n    trades.push({\n        date: d.date, ticker, price, decision, action,\n        pnl: pnl !== 0 ? pnl.toFixed(2) : '',\n        rsi, sentiment_label: sentimentLabel,\n        sentiment_score: sentimentScore.toFixed(2),\n        equity: currentTickerEquity.toFixed(2), reason\n    });\n}\n\nconst dateEquityMap = {};\nconst uniqueDates = [...new Set(trades.map(t => t.date))].sort();\ntrades.forEach(t => {\n    if (!dateEquityMap[t.date]) dateEquityMap[t.date] = 0;\n    dateEquityMap[t.date] += parseFloat(t.equity);\n});\nconst equityCurve = uniqueDates.map(d => dateEquityMap[d]);\n\nlet peak = -Infinity, maxDrawdown = 0;\nconst dailyReturns = [];\nfor (const eq of equityCurve) {\n    if (eq > peak) peak = eq;\n    const dd = (peak - eq) / peak;\n    if (dd > maxDrawdown) maxDrawdown = dd;\n}\nfor (let i = 1; i < equityCurve.length; i++) {\n    const ret = equityCurve[i-1] !== 0 ? (equityCurve[i] - equityCurve[i-1]) / equityCurve[i-1] : 0;\n    dailyReturns.push(ret);\n}\n\nconst avgDailyRet = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length || 0;\nconst variance = dailyReturns.reduce((a, b) => a + Math.pow(b - avgDailyRet, 2), 0) / dailyReturns.length || 0;\nconst stdDev = Math.sqrt(variance);\nconst sharpeRatio = stdDev !== 0 ? (avgDailyRet / stdDev) * Math.sqrt(365) : 0;\nconst finalTotalEquity = equityCurve[equityCurve.length - 1] || 10000;\nconst totalReturn = ((finalTotalEquity - 10000) / 10000) * 100;\nconst winRate = totalTrades > 0 ? ((winningTrades / totalTrades) * 100) : 0;\nconst profitFactor = totalLoss > 0 ? (totalProfit / totalLoss) : (totalProfit > 0 ? 999 : 0);\n\nreturn [{\n  json: {\n    metric_summary: {\n      \"Total Trades\": totalTrades,\n      \"Win Rate\": winRate.toFixed(2) + \"%\",\n      \"Profit Factor\": profitFactor.toFixed(2),\n      \"Total Return\": totalReturn.toFixed(2) + \"%\",\n      \"Sharpe Ratio\": sharpeRatio.toFixed(2),\n      \"Max Drawdown\": \"-\" + (maxDrawdown * 100).toFixed(2) + \"%\",\n      \"Final Balance\": \"$\" + finalTotalEquity.toFixed(2)\n    },\n    trade_log: trades\n  }\n}];"
+      },
+      "id": "1fbb0cf7-a5e3-4014-ad61-e6c8a6e5334e",
+      "name": "6. Final Logic & Metrics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1824,
+        16
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $input.first();\nconst trades = input.json.trade_log;\nconst summary = input.json.metric_summary;\n\nif (!trades) throw new Error(\"No trade data\");\n\nconst header = 'date,ticker,price,decision,rsi,sentiment,reason\\n';\nconst csvRows = trades.map(t => {\n  const safeReason = (t.reason || '').replace(/\"/g, \"'\");\n  return `${t.date},${t.ticker},${t.price},${t.decision},${t.rsi},${t.sentiment_label},\"${safeReason}\"`;\n}).join('\\n');\n\nconst csvContent = header + csvRows;\n\nreturn [{\n  json: {\n    summary: summary,\n    message: \"CSV Ready\"\n  },\n  binary: {\n    data: {\n      data: Buffer.from(csvContent).toString('base64'),\n      mimeType: 'text/csv',\n      fileName: 'final_results.csv'\n    }\n  }\n}];"
+      },
+      "id": "11e0dfb8-26ca-4e5a-84f8-0f1ffef3c314",
+      "name": "7. Export CSV",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        16
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Start Bot": {
+      "main": [
+        [
+          {
+            "node": "1. Load Market Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "2. Load News Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Load Market Data": {
+      "main": [
+        [
+          {
+            "node": "Parse CSV (Market)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Load News Data": {
+      "main": [
+        [
+          {
+            "node": "Parse CSV (News)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CSV (Market)": {
+      "main": [
+        [
+          {
+            "node": "Wait for Both",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse CSV (News)": {
+      "main": [
+        [
+          {
+            "node": "Group News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Group News": {
+      "main": [
+        [
+          {
+            "node": "Wait for Both",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Wait for Both": {
+      "main": [
+        [
+          {
+            "node": "3. Merge Daily Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Merge Daily Data": {
+      "main": [
+        [
+          {
+            "node": "4. Prepare Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Prepare Batch": {
+      "main": [
+        [
+          {
+            "node": "5. HF Sentiment (Single Batch)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. HF Sentiment (Single Batch)": {
+      "main": [
+        [
+          {
+            "node": "6. Final Logic & Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Final Logic & Metrics": {
+      "main": [
+        [
+          {
+            "node": "7. Export CSV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "d6e36c10-bcc9-487e-ae46-af29335d76fd",
+  "meta": {
+    "instanceId": "58907382346fabf12729e67c2153c38d8812bced961b726df1f6158038931522"
+  },
+  "id": "NtUJd4JTdCEdjeTp",
+  "tags": []
+}
