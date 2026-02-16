@@ -35,7 +35,7 @@ Initial Capital: $10,000 total ($1,111 per ticker)
 
 
 Decision Flowchart (Mermaid)
-mermaidgraph TD
+graph TD
     Start[Market Data Input: Price + RSI + News] --> CheckTP{In Position AND PnL >= 4%?}
     
     CheckTP -->|Yes| SellTP[SELL: Take-Profit +4%]
@@ -45,13 +45,13 @@ mermaidgraph TD
     CheckSL -->|No| CheckRSIHigh{RSI > 68?}
     
     CheckRSIHigh -->|Yes| SellRSI[SELL: Overbought]
-    CheckRSIHigh -->|No| CheckNeg{NEGATIVE News AND Score > 0.72?}
+    CheckRSIHigh -->|No| CheckNeg{Sentiment NEGATIVE AND Score > 0.72?}
     
     CheckNeg -->|Yes| SellNeg[SELL: Negative News]
     CheckNeg -->|No| CheckRSILow{RSI < 33 AND NOT Negative?}
     
     CheckRSILow -->|Yes| BuyRSI[BUY: Oversold RSI]
-    CheckRSILow -->|No| CheckPos{POSITIVE News AND Score > 0.78 AND RSI < 58?}
+    CheckRSILow -->|No| CheckPos{Sentiment POSITIVE AND Score > 0.78 AND RSI < 58?}
     
     CheckPos -->|Yes| BuyPos[BUY: Positive News + RSI OK]
     CheckPos -->|No| Default{In Position?}
