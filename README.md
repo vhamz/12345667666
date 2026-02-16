@@ -2,8 +2,11 @@
 
 ## 👥 Members
 Kazanfаrov Timur Ruslanovich
+
 Karpova Valeria Igorevna
+
 Novolaeva Eva
+
 Yusupov Khamzat Maazovich
 
 ## 🧠 Strategy Overview
