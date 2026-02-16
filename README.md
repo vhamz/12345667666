@@ -1,8 +1,10 @@
 # Team 02 - Crypto Trading Strategy
 
 ## 👥 Members
-- [Name] - [Student ID]
-- [Name] - [Student ID]
+Kazanfаrov Timur Ruslanovich
+Karpova Valeria Igorevna
+Novolaeva Eva
+Yusupov Khamzat Maazovich
 
 ## 🧠 Strategy Overview
 
@@ -62,3 +64,33 @@ graph TD
     style BuyRSI fill:#d4edda,stroke:#28a745,stroke-width:2px
     style BuyPos fill:#d4edda,stroke:#28a745,stroke-width:2px
     style BuyDefault fill:#d4edda,stroke:#28a745,stroke-width:2px
+
+
+
+
+📊 Performance Analysis
+
+Sharpe Ratio: 0.79 (Most Important!)
+Total Return: +3.89%
+Max Drawdown: -9.53%
+Win Rate: 49.07%
+Profit Factor: 1.19
+Total Trades: 108
+Final Balance: $10,388.87
+
+Comparison vs Baseline
+MetricBaseline StrategyOur StrategySharpe Ratio-0.92+0.79Total Return-9.16%+3.89%Max Drawdown-23.71%-9.53%Final Balance$9,083.51$10,388.87
+
+💪 Strengths
+
+Strong risk management — Stop-Loss at -2% prevents large losses and keeps Max Drawdown low at -9.53%
+Sentiment-driven exits — Selling on negative news (score > 0.72) allows early exit before price drops
+No HOLD logic — Every timestep makes an active decision, enabling hedging instead of passive waiting
+Significantly outperforms baseline — Sharpe Ratio improved from -0.92 to +0.79
+
+⚠️ Limitations & Learnings
+
+Default trades add noise — When no clear signal exists, default buy/sell creates some low-quality trades
+Single sentiment source — All 9 tickers share the same daily news, limiting per-asset precision
+Crypto volatility — High market volatility during the 90-day period made consistent gains difficult
+RSI thresholds — Fixed RSI thresholds (33/68) may not be optimal across all market conditions
