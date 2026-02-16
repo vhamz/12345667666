@@ -1,75 +1,96 @@
-# Team 13 - Crypto Trading Strategy
+Team 02 - Crypto Trading Strategy
+👥 Members
 
-## 👥 Members
-- Valerii Bobrov - 43
-- Anna Grishkina - 44
-- Dmitrii Orel - 45
-- Lina Shpileva - 46
+[Name] - [Student ID]
+[Name] - [Student ID]
 
-## 🧠 Strategy Overview
 
-### Core Logic
-Our strategy is a **hybrid scoring system** that combines news sentiment with technical indicators.  
-We do not trade on every signal – we wait for a sufficiently high confidence score (**≥20**) combined with positive volume.  
-This ensures we only enter trades with a high probability of success, resulting in excellent risk-adjusted returns.
+🧠 Strategy Overview
+Core Logic
+Our strategy focuses on Mean Reversion + News-Based approach combining RSI technical indicator with AI-powered news sentiment analysis. The key insight is that crypto markets tend to overreact to news, creating short-term mispricings that we can exploit.
+No HOLD allowed — every signal results in either a BUY or SELL decision.
 
-**Key principles:**
-- **Score-based entry:** Only buy when cumulative score ≥20 (or alternative strong positive + oversold RSI).
-- **Volume filter:** Positive volume change required for entry.
-- **Multiple exit mechanisms:** Sentiment reversal, RSI overbought, price below MA20, stop-loss (8%), take-profit (25%), and max holding period (7 days).
-- **Emergency sells:** RSI >80 or Bollinger position >0.98 force immediate exit.
+Entry Condition (Buy):
 
-### Decision Flowchart (Mermaid)
-```mermaid
-graph TD
-    Start[Market Data Input] --> ComputeScore[Calculate Score:<br/>Sentiment + RSI + MACD + BB + Volume + Volatility + Trend]
-    ComputeScore --> CheckPos{In position?}
+RSI < 33 AND Sentiment is NOT NEGATIVE (oversold market)
+OR Sentiment POSITIVE with Score > 0.78 AND RSI < 58 (positive news momentum)
+
+
+Exit Condition (Sell):
+
+Take-Profit triggered at +4% gain
+Stop-Loss triggered at -2% loss
+RSI > 68 (overbought market)
+Sentiment NEGATIVE with Score > 0.72 (negative news signal)
+Default hedge: exit position if no clear signal
+
+
+
+Risk Management
+
+Stop-Loss: -2% per position (limits downside)
+Take-Profit: +4% per position (locks in gains)
+Portfolio: Capital equally distributed across 9 crypto tickers
+Initial Capital: $10,000 total ($1,111 per ticker)
+
+
+Decision Flowchart (Mermaid)
+mermaidgraph TD
+    Start[Market Data Input: Price + RSI + News] --> CheckTP{In Position AND PnL >= 4%?}
     
-    CheckPos -->|Yes| ExitCheck{Check exit conditions:<br/>- Negative sentiment >0.7<br/>- RSI >70<br/>- Price < MA20<br/>- Stop loss 8%<br/>- Take profit 25%<br/>- Days ≥7}
-    ExitCheck -->|Any true| Sell[Sell]
-    ExitCheck -->|None| Hold[Continue holding]
+    CheckTP -->|Yes| SellTP[SELL: Take-Profit +4%]
+    CheckTP -->|No| CheckSL{In Position AND PnL <= -2%?}
     
-    CheckPos -->|No| CheckVolume{Volume change >0?}
-    CheckVolume -->|No| Hold
-    CheckVolume -->|Yes| CheckScore{Score ≥20?}
-    CheckScore -->|Yes| Buy[Buy]
-    CheckScore -->|No| CheckAlt{Strong positive + RSI <40?}
-    CheckAlt -->|Yes| Buy
-    CheckAlt -->|No| Hold
+    CheckSL -->|Yes| SellSL[SELL: Stop-Loss -2%]
+    CheckSL -->|No| CheckRSIHigh{RSI > 68?}
     
-    Buy --> InPos[Enter position]
-    Sell --> OutPos[Exit position]
+    CheckRSIHigh -->|Yes| SellRSI[SELL: Overbought]
+    CheckRSIHigh -->|No| CheckNeg{NEGATIVE News AND Score > 0.72?}
     
-    style Buy fill:#d4edda,stroke:#28a745
-    style Sell fill:#f8d7da,stroke:#dc3545
-    style Hold fill:#e2e3e5,stroke:#6c757d
-```
+    CheckNeg -->|Yes| SellNeg[SELL: Negative News]
+    CheckNeg -->|No| CheckRSILow{RSI < 33 AND NOT Negative?}
+    
+    CheckRSILow -->|Yes| BuyRSI[BUY: Oversold RSI]
+    CheckRSILow -->|No| CheckPos{POSITIVE News AND Score > 0.78 AND RSI < 58?}
+    
+    CheckPos -->|Yes| BuyPos[BUY: Positive News + RSI OK]
+    CheckPos -->|No| Default{In Position?}
+    
+    Default -->|Yes| SellDefault[SELL: Default Hedge]
+    Default -->|No| BuyDefault[BUY: Default Enter]
 
-### Performance Analysis
-*   **Sharpe Ratio:** **1.69**
-*   Total Return: +9.01%
-*   Max Drawdown: -8.22%
+    style SellTP fill:#f8d7da,stroke:#dc3545,stroke-width:2px
+    style SellSL fill:#f8d7da,stroke:#dc3545,stroke-width:2px
+    style SellRSI fill:#f8d7da,stroke:#dc3545,stroke-width:2px
+    style SellNeg fill:#f8d7da,stroke:#dc3545,stroke-width:2px
+    style SellDefault fill:#f8d7da,stroke:#dc3545,stroke-width:2px
+    style BuyRSI fill:#d4edda,stroke:#28a745,stroke-width:2px
+    style BuyPos fill:#d4edda,stroke:#28a745,stroke-width:2px
+    style BuyDefault fill:#d4edda,stroke:#28a745,stroke-width:2px
 
-**Strengths:**
-- Excellent risk-adjusted returns (Sharpe 1.69).
-- Low drawdown (-8.22%) thanks to strict exit rules.
-- High win rate (64.44%) indicates good signal quality.
-- Balanced number of trades (45) – active enough, yet selective.
+📊 Performance Analysis
 
-**Limitations & Learnings:**
-- The strategy is conservative: it misses some profitable opportunities due to strict filters (e.g., volume condition).
-- We also tested a version (v12) with Sharpe 2.06 but only 32 trades – we preferred v14 because it offers a better balance between return and activity, making it more robust and less dependent on a few lucky trades.
-- In sideways markets, the strategy may hold cash for extended periods, but this is acceptable given the overall positive performance.
+Sharpe Ratio: 0.79 (Most Important!)
+Total Return: +3.89%
+Max Drawdown: -9.53%
+Win Rate: 49.07%
+Profit Factor: 1.19
+Total Trades: 108
+Final Balance: $10,388.87
 
-**Comparison with baseline:**
+Comparison vs Baseline
+MetricBaseline StrategyOur StrategySharpe Ratio-0.92+0.79Total Return-9.16%+3.89%Max Drawdown-23.71%-9.53%Final Balance$9,083.51$10,388.87
 
-- **Baseline Sharpe**: -0.92 (negative). Our strategy turned it into a strong positive 1.69.
-- **Baseline Return**: -9.16%. We achieved +9.01%.
-- **Baseline Drawdown**: -23.71%. We reduced it to -8.22%.
+💪 Strengths
 
-## 📁 Repository Contents
+Strong risk management — Stop-Loss at -2% prevents large losses and keeps Max Drawdown low at -9.53%
+Sentiment-driven exits — Selling on negative news (score > 0.72) allows early exit before price drops
+No HOLD logic — Every timestep makes an active decision, enabling hedging instead of passive waiting
+Significantly outperforms baseline — Sharpe Ratio improved from -0.92 to +0.79
 
-- **README.md**              ← Strategy Documentation
-- **workflow.json**          ← Your modified n8n workflow file
-- **trade_log.csv**          ← Backtest results (Transaction history)
-- **metrics.csv**            ← Backtest results (Performance summary)
+⚠️ Limitations & Learnings
+
+Default trades add noise — When no clear signal exists, default buy/sell creates some low-quality trades
+Single sentiment source — All 9 tickers share the same daily news, limiting per-asset precision
+Crypto volatility — High market volatility during the 90-day period made consistent gains difficult
+RSI thresholds — Fixed RSI thresholds (33/68) may not be optimal across all market conditions
